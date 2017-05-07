@@ -8,7 +8,6 @@ public class Distance extends Chubgraph {
     inlet => g;
 
     3 => g.op;
-    0.9 => p.pole;
 
     0.0 => float m_dB;
     0::samp => dur m_timeout;
@@ -28,11 +27,11 @@ public class Distance extends Chubgraph {
         return Std.rmstodb(p.last());
     }
 
-    fun dur measure() {
-        0.2 => p.pole;
+    fun dur measure(dur min) {
+        0.4 => p.pole;
         g.gain(1.0);
         now => time start;
-        while (decibel() < m_dB) {
+        while (decibel() < m_dB || (now - start) < min) {
             samp => now;
             if ((now - start) > m_timeout) {
                 return m_timeout;
