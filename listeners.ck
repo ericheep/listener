@@ -1,5 +1,5 @@
-// pulse.ck
-// May 6th, 2017
+// listeners.ck
+// May 13th, 2017
 // Eric Heep
 
 6 => int NUM_SPEAKERS;
