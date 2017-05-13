@@ -1,4 +1,4 @@
-# listeners
+# listener
 Coaxial, 8:00 PM, May 14th, 2017
 
 A piece for six speakers and a room microphone.
@@ -6,6 +6,8 @@ A piece for six speakers and a room microphone.
 A farily simple system is presented, where six small speakers emit an impulse in succession while a microphone listens for their impulse. If the microphone hears the speaker's impulse, it moves immediately to the next speaker, if not, the speaker "times out" before moving to the next speaker.
 
 The primary parameters of the piece are the speakers' orientation, their distance from the microphone, and presence of objects blocking the speakers.
+
+![setup](setup.png)
 
 quality of the system
 =====================
