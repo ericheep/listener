@@ -6,19 +6,19 @@
 10.0 => float THRESHOLD;
 2.00 => float TIMEOUT_MULTIPLIER;
 1000::samp => dur MIN_LENGTH;
-0.5::second => dur MAX_TIMEOUT;
+1.00::second => dur MAX_TIMEOUT;
+
+0.0::samp => dur m_timeout;
 
 Distance dist[NUM_SPEAKERS];
 Impulse imp[NUM_SPEAKERS];
 dur timeDelays[NUM_SPEAKERS];
 
-0.5::second => dur m_timeout;
-
 for (0 => int i; i < NUM_SPEAKERS; i++) {
     adc => dist[i] => blackhole;
     imp[i] => dac.chan(i);
 
-    0.5::second => timeDelays[i];
+    MAX_TIMEOUT => timeDelays[i];
     dist[i].setMinLength(MIN_LENGTH);
     dist[i].setThreshold(THRESHOLD);
     dist[i].setMaxTimeout(MAX_TIMEOUT);
@@ -32,6 +32,7 @@ fun dur mean(dur arr[]) {
     return sum/arr.size();
 }
 
+10::second => now;
 
 while (true) {
     for (0 => int i; i < NUM_SPEAKERS; i++) {
