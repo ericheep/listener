@@ -2,14 +2,14 @@
 // Eric Heep
 
 Noise n;
-n.gain(0.0015);
+n.gain(0.0115);
 
 6 => int NUM_SPEAKERS;
 
 while (true) {
     for (int i; i < NUM_SPEAKERS; i++) {
         n => dac.chan(i);
-        1.0::second => now;
+        0.5::second => now;
         n =< dac.chan(i);
     }
 }

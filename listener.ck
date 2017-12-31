@@ -1,59 +1,136 @@
 // listener.ck
-// May 13th, 2017
+// Dec 30th, 2017
 // Eric Heep
 
-6 => int NUM_SPEAKERS;
-10.0 => float THRESHOLD;
-2.00 => float TIMEOUT_MULTIPLIER;
-1000::samp => dur MIN_LENGTH;
-1.00::second => dur MAX_TIMEOUT;
+[1.0, 1.0, 0.68, 0.48, 0.86, 0.60] @=> float gains[];
+// [1.0, 1.0, 1.0, 1.0, 1.0, 1.0] @=> float gains[];
+[81, 87, 69, 82, 84, 89] @=> int topHomeRow[];
 
-0.0::samp => dur m_timeout;
+Hid hi;
+HidMsg msg;
 
-Distance dist[NUM_SPEAKERS];
-Impulse imp[NUM_SPEAKERS];
-dur timeDelays[NUM_SPEAKERS];
+if (!hi.openKeyboard(0)) {
+    me.exit();
+}
 
+2 => int NUM_SPEAKERS;
+false => int findAverageThreshold;
+false => int adjustGains;
+int speakerStates[NUM_SPEAKERS];
+
+1000::ms => dur maxTimeoutDuration;
+50::ms => dur minTimeoutDuration;
+maxTimeoutDuration => dur initialTimeoutDuration;
+maxTimeoutDuration => dur timeoutDuration;
+
+Speaker spkr[NUM_SPEAKERS];
+float impulsePeaks[NUM_SPEAKERS];
+
+// connect speakers
 for (0 => int i; i < NUM_SPEAKERS; i++) {
-    adc => dist[i] => blackhole;
-    imp[i] => dac.chan(i);
-
-    MAX_TIMEOUT => timeDelays[i];
-    dist[i].setMinLength(MIN_LENGTH);
-    dist[i].setThreshold(THRESHOLD);
-    dist[i].setMaxTimeout(MAX_TIMEOUT);
+    adc => spkr[i] => dac.chan(i);
 }
 
-fun dur mean(dur arr[]) {
-    0::samp => dur sum;
-    for (0 => int i; i < arr.size(); i++) {
-        arr[i] +=> sum;
+// let things calm down
+1.0::second => now;
+
+0.0 => float averageThreshold;
+43.0 => float setThreshold;
+
+// analyze "room"
+for (0 => int i; i < NUM_SPEAKERS; i++) {
+    1 => speakerStates[i];
+    spkr[i].setGain(gains[i]);
+    spkr[i].setTimeoutDuration(initialTimeoutDuration);
+    if (findAverageThreshold) {
+        spkr[i].findAverageImpulsePeak(10) => float impulsePeak;
+        impulsePeak/NUM_SPEAKERS +=> averageThreshold;
+        spkr[i].setDecibelThreshold(averageThreshold + 3);
     }
-    return sum/arr.size();
+    spkr[i].setDecibelThreshold(setThreshold);
 }
 
-10::second => now;
-
-while (true) {
+// adjust gains
+if (adjustGains) {
     for (0 => int i; i < NUM_SPEAKERS; i++) {
-        mean(timeDelays) => m_timeout;
-        dist[i].setTimeout(m_timeout * TIMEOUT_MULTIPLIER);
+        spkr[i].findImpulseVolume(averageThreshold, 30);
+    }
+}
 
-        imp[i].next(1.0);
-        dist[i].measureDistance() => timeDelays[i];
+fun void impulseAndListen(int idx) {
+    spkr[idx].impulse();
+    spkr[idx].listenAndWait() => int isTimeout;
 
-        if (dist[i].getTimeoutState()) {
-            m_timeout * TIMEOUT_MULTIPLIER => now;
-            chout <= "TIMEOUT\t";
-        } else {
-            chout <= (timeDelays[i]/samp)$int + "\t";
+    if (isTimeout) {
+        15::ms +=> timeoutDuration;
+        if (timeoutDuration > maxTimeoutDuration) {
+            maxTimeoutDuration => timeoutDuration;
         }
-
-
+    } else {
+        20::ms -=> timeoutDuration;
+        if (timeoutDuration < minTimeoutDuration) {
+            minTimeoutDuration => timeoutDuration;
+        }
     }
 
-    chout <= "| Avg: " + (mean(timeDelays)/samp)$int;
-    chout.flush();
-    chout <= "\n";
+    spkr[idx].setTimeoutDuration(timeoutDuration);
 }
+
+fun void cycleSpeakers(dur length, int numSpeakers) {
+    now => time start;
+    while (now - start < length) {
+        for (int i; i < numSpeakers; i++) {
+            if (speakerStates[i]) {
+                impulseAndListen(i);
+            }
+        }
+        0 => int check;
+        for (int i; i < NUM_SPEAKERS; i++) {
+            speakerStates[i] +=> check;
+        }
+        if (check == 0) {
+            samp => now;
+        }
+    }
+}
+
+spork ~ keyboard();
+
+fun void main() {
+    cycleSpeakers(25::minute, NUM_SPEAKERS);
+}
+
+fun void keyboard() {
+    while (true) {
+        hi => now;
+        while (hi.recv(msg)) {
+            for (int i; i < 6; i++) {
+                if (msg.ascii == i + 49) {
+                    if (msg.isButtonDown()) {
+                        !speakerStates[i] => speakerStates[i];
+                        <<< speakerStates[0], speakerStates[1], speakerStates[2],
+                            speakerStates[3], speakerStates[4], speakerStates[5] >>>;
+                    }
+                }
+                if (msg.ascii == topHomeRow[i]) {
+                    if (msg.isButtonDown()) {
+                        for (int j; j < NUM_SPEAKERS; j++) {
+                            if (i == j) {
+                                1 => speakerStates[j];
+                            } else {
+                                0 => speakerStates[j];
+                            }
+                        }
+                        <<< speakerStates[0], speakerStates[1], speakerStates[2],
+                            speakerStates[3], speakerStates[4], speakerStates[5] >>>;
+                    }
+                }
+            }
+        }
+    }
+}
+
+1::second => now;
+
+main();
 
